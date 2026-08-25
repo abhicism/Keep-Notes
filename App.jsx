@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Archive, Moon, Search, StickyNote, Sun, X } from 'lucide-react'
+import { Archive, ListTodo, Moon, Search, StickyNote, Sun, X } from 'lucide-react'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import MasonryGrid from './components/MasonryGrid'
 import CreateNote from './components/CreateNote'
 import NoteCard from './components/NoteCard'
 import EditNoteModal from './components/EditNoteModal'
 import EmptyState from './components/EmptyState'
+import TodoList from './TodoList'
 
 export default function App() {
   const [notes, setNotes] = useLocalStorage('keep-clone.notes', [])
+  const [tasks, setTasks] = useLocalStorage('keep-clone.tasks', [])
   const [isDark, setIsDark] = useLocalStorage('keep-clone.dark', false)
   const [query, setQuery] = useState('')
-  const [view, setView] = useState('notes') // 'notes' | 'archive'
+  const [view, setView] = useState('notes') // 'notes' | 'tasks' | 'archive'
   const [activeNote, setActiveNote] = useState(null)
 
   function addNote(note) {
@@ -30,6 +32,23 @@ export default function App() {
 
   function toggleArchive(note) {
     updateNote({ ...note, isArchived: !note.isArchived, updatedAt: Date.now() })
+  }
+
+  function addTask(text) {
+    setTasks((current) => [
+      { id: crypto.randomUUID(), text, completed: false, createdAt: Date.now() },
+      ...current,
+    ])
+  }
+
+  function toggleTask(id) {
+    setTasks((current) => current.map((task) => (
+      task.id === id ? { ...task, completed: !task.completed } : task
+    )))
+  }
+
+  function deleteTask(id) {
+    setTasks((current) => current.filter((task) => task.id !== id))
   }
 
   const filtered = useMemo(() => {
@@ -74,13 +93,23 @@ export default function App() {
             </div>
 
             <button
-              onClick={() => setView((v) => (v === 'notes' ? 'archive' : 'notes'))}
-              title={view === 'notes' ? 'View archive' : 'Back to notes'}
+              onClick={() => setView((current) => (current === 'archive' ? 'notes' : 'archive'))}
+              title={view === 'archive' ? 'Back to notes' : 'View archive'}
               className={`p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 shrink-0 ${
                 view === 'archive' ? 'text-amber-500' : 'text-neutral-600 dark:text-neutral-300'
               }`}
             >
               <Archive size={20} />
+            </button>
+            <button
+              onClick={() => setView((current) => (current === 'tasks' ? 'notes' : 'tasks'))}
+              title={view === 'tasks' ? 'Back to notes' : 'View tasks'}
+              aria-label={view === 'tasks' ? 'Back to notes' : 'View tasks'}
+              className={`p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 shrink-0 ${
+                view === 'tasks' ? 'text-amber-500' : 'text-neutral-600 dark:text-neutral-300'
+              }`}
+            >
+              <ListTodo size={20} />
             </button>
             <button
               onClick={() => setIsDark((d) => !d)}
@@ -95,11 +124,20 @@ export default function App() {
         <main className="max-w-6xl mx-auto px-4 py-8">
           {view === 'notes' && <CreateNote onCreate={addNote} isDark={isDark} />}
 
+          {view === 'tasks' && (
+            <TodoList
+              tasks={tasks}
+              onAdd={addTask}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+            />
+          )}
+
           {view === 'archive' && (
             <p className="text-center text-sm text-neutral-400 mb-8">Archived notes stay here until you delete or restore them.</p>
           )}
 
-          {filtered.length === 0 ? (
+          {view !== 'tasks' && (filtered.length === 0 ? (
             <EmptyState searching={!!query.trim()} />
           ) : (
             <div className="space-y-8">
@@ -147,7 +185,7 @@ export default function App() {
                 </section>
               )}
             </div>
-          )}
+          ))}
         </main>
 
         <AnimatePresence>
